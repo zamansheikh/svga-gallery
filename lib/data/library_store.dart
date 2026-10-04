@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -67,6 +68,7 @@ class LibraryStore extends ChangeNotifier {
   /// Whether the app may read shared storage (always false off Android).
   bool deviceAccess = false;
   bool _scanning = false;
+  Timer? _metaSaveTimer;
 
   /// Device files are left out while storage access is missing: they cannot
   /// be read, and come back untouched (favorites included) once it returns.
@@ -168,7 +170,12 @@ class LibraryStore extends ChangeNotifier {
       ..fps = params.fps == 0 ? 20 : params.fps
       ..frames = params.frames;
     notifyListeners();
-    _save();
+    // Scrolling a large gallery decodes many files in a row; write the index
+    // once they settle rather than after each one.
+    _metaSaveTimer ??= Timer(const Duration(seconds: 2), () {
+      _metaSaveTimer = null;
+      _save();
+    });
   }
 
   Future<void> _save() => _prefs.setString(
