@@ -17,7 +17,10 @@ A gallery app for browsing and previewing [SVGA](https://github.com/svga) animat
 
 ## Download
 
-Windows builds are attached to each [release](https://github.com/zamansheikh/svga-gallery/releases): unzip `SVGA-Gallery-windows-x64.zip` and run `svga_gallery.exe`.
+Windows builds are attached to each [release](https://github.com/zamansheikh/svga-gallery/releases):
+
+- `SVGA-Gallery-Setup-<version>.exe` — installer (Start menu and optional desktop shortcut, uninstaller)
+- `SVGA-Gallery-windows-x64-portable.zip` — no install; unzip and run `svga_gallery.exe`
 
 ## Build from source
 
