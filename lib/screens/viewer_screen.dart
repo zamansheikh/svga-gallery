@@ -259,7 +259,7 @@ class _ViewerPageState extends State<_ViewerPage>
     with SingleTickerProviderStateMixin {
   late final SVGAAnimationController _controller = SVGAAnimationController(
     vsync: this,
-  )..isMute = widget.muted;
+  )..muted = widget.muted;
 
   /// Duration at 1× speed, as reported by the file.
   Duration _baseDuration = Duration.zero;
@@ -327,7 +327,7 @@ class _ViewerPageState extends State<_ViewerPage>
   @override
   void didUpdateWidget(_ViewerPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _controller.isMute = widget.muted;
+    _controller.muted = widget.muted;
     if (!_ready) return;
     final speedChanged = oldWidget.speed != widget.speed;
     if (speedChanged) {

@@ -55,7 +55,7 @@ class _SvgaThumbState extends State<SvgaThumb>
     with SingleTickerProviderStateMixin {
   late final SVGAAnimationController _controller = SVGAAnimationController(
     vsync: this,
-  )..isMute = true;
+  )..muted = true;
   bool _ready = false;
   bool _failed = false;
 

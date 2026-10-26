@@ -287,10 +287,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_svga_easyplayer
-      sha256: "6da8246a6c07b3f373c399b0bb9b80b7ab426a980d400dc2f6759d323b105e83"
+      sha256: "54417bca0f42f86d2e004b1aa33c5960b78ae896329804f1b679f38dca3a2362"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.7"
+    version: "0.2.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -479,22 +479,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
-  path_drawing:
-    dependency: transitive
-    description:
-      name: path_drawing
-      sha256: bbb1934c0cbb03091af082a6389ca2080345291ef07a5fa6d6e078ba8682f977
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.1"
-  path_parsing:
-    dependency: transitive
-    description:
-      name: path_parsing
-      sha256: "883402936929eac138ee0a45da5b0f2c80f89913e6dc3bf77eb65b84b409c6ca"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.0"
   path_provider:
     dependency: "direct main"
     description:
@@ -583,14 +567,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.6"
-  protobuf:
-    dependency: transitive
-    description:
-      name: protobuf
-      sha256: "13b6717366aa7ec3792dd62c19c7d33a785708224365f2db23c5ca01f1c1a0f2"
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.1.0"
   pub_semver:
     dependency: transitive
     description:
