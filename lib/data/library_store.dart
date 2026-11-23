@@ -190,7 +190,11 @@ class LibraryStore extends ChangeNotifier {
       for (final path in paths) {
         try {
           final bytes = await File(path).readAsBytes();
-          result += await _importBytes(p.basenameWithoutExtension(path), bytes);
+          final (outcome, _) = await _importBytes(
+            p.basenameWithoutExtension(path),
+            bytes,
+          );
+          result += outcome;
         } catch (_) {
           result += const ImportResult(failed: 1);
         }
@@ -199,6 +203,39 @@ class LibraryStore extends ChangeNotifier {
       _setBusy(null);
     }
     return result;
+  }
+
+  /// Adds files the operating system asked the app to open ("Open with",
+  /// share sheet) and returns their gallery items; a file that is already in
+  /// the gallery gives back the existing item. Files that are not valid SVGA
+  /// are counted in the result instead.
+  ///
+  /// Temporary copies made by the Android side (under `<cache>/opened/`) are
+  /// deleted once read.
+  Future<(List<SvgaItem>, ImportResult)> importOpened(
+    List<String> paths,
+  ) async {
+    final opened = <SvgaItem>[];
+    var result = const ImportResult();
+    final scratch = p.join((await getTemporaryDirectory()).path, 'opened');
+    for (final path in paths) {
+      try {
+        final file = File(path);
+        final bytes = await file.readAsBytes();
+        if (p.isWithin(scratch, file.parent.path)) {
+          await file.parent.delete(recursive: true);
+        }
+        final (outcome, item) = await _importBytes(
+          p.basenameWithoutExtension(path),
+          bytes,
+        );
+        result += outcome;
+        if (item != null && !opened.contains(item)) opened.add(item);
+      } catch (_) {
+        result += const ImportResult(failed: 1);
+      }
+    }
+    return (opened, result);
   }
 
   Future<ImportResult> importUrl(String url) async {
@@ -235,11 +272,12 @@ class LibraryStore extends ChangeNotifier {
       final bytes = await consolidateHttpClientResponseBytes(response);
       final segment = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
       final name = p.basenameWithoutExtension(segment);
-      return await _importBytes(
+      final (outcome, _) = await _importBytes(
         name.isEmpty ? 'animation' : name,
         bytes,
         source: url,
       );
+      return outcome;
     } catch (_) {
       return const ImportResult(failed: 1);
     } finally {
@@ -247,20 +285,26 @@ class LibraryStore extends ChangeNotifier {
     }
   }
 
-  Future<ImportResult> _importBytes(
+  /// Returns the outcome and the gallery item holding the file (the existing
+  /// one for a duplicate, null when the file is not valid SVGA).
+  Future<(ImportResult, SvgaItem?)> _importBytes(
     String name,
     Uint8List bytes, {
     String? source,
   }) async {
-    if (_items.any((e) => e.name == name && e.bytes == bytes.length)) {
-      return const ImportResult(duplicates: 1);
+    // Only visible items count: a device file hidden while storage access is
+    // missing cannot be opened, so the file is added as a copy instead.
+    for (final existing in items) {
+      if (existing.name == name && existing.bytes == bytes.length) {
+        return (const ImportResult(duplicates: 1), existing);
+      }
     }
     // Decoding validates the file and gives us its metadata up front.
     final MovieEntity movie;
     try {
       movie = await SVGAParser.shared.decodeFromBuffer(bytes);
     } catch (_) {
-      return const ImportResult(failed: 1);
+      return (const ImportResult(failed: 1), null);
     }
     final params = movie.params;
     final id = _newId();
@@ -281,7 +325,7 @@ class LibraryStore extends ChangeNotifier {
     _items.add(item);
     await _save();
     notifyListeners();
-    return const ImportResult(added: 1);
+    return (const ImportResult(added: 1), item);
   }
 
   Future<void> toggleFavorite(SvgaItem item) async {

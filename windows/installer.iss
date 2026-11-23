@@ -4,6 +4,7 @@
 
 #define AppName "SVGA Gallery"
 #define AppExe "svga_gallery.exe"
+#define ProgId "SVGAGallery.svga"
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
@@ -31,12 +32,30 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; Installs per user without admin rights; the dialog offers "all users".
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+; Tells Explorer to pick up the .svga association without a sign-out.
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "associate"; Description: "Open .svga files with {#AppName}"; GroupDescription: "File associations:"
+
+[Registry]
+; HKA is HKCU for a per-user install and HKLM for an all-users one.
+; The ProgID and the "Open with" entries are always written, so the app is
+; offered for .svga files even when the user unticks the association task.
+Root: HKA; Subkey: "Software\Classes\{#ProgId}"; ValueType: string; ValueName: ""; ValueData: "SVGA Animation"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\{#ProgId}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExe},0"
+Root: HKA; Subkey: "Software\Classes\{#ProgId}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""
+Root: HKA; Subkey: "Software\Classes\.svga\OpenWithProgids"; ValueType: string; ValueName: "{#ProgId}"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "{#AppName}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; ValueType: string; ValueName: ".svga"; ValueData: ""
+Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""
+; Default handler. Windows still asks once if another app already claimed
+; .svga, and the user's own choice in Settings always wins.
+Root: HKA; Subkey: "Software\Classes\.svga"; ValueType: string; ValueName: ""; ValueData: "{#ProgId}"; Flags: uninsdeletevalue; Tasks: associate
 
 [Files]
 Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

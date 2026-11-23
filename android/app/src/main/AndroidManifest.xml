@@ -15,10 +15,13 @@
         android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- singleTask: a file opened from another app goes to the running
+             gallery (onNewIntent) instead of starting a second copy of it in
+             that app's task, where both would write the library index. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
@@ -32,9 +35,68 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- On by default: Flutter would push an opened file's URI to
+                 the Navigator as a route. MainActivity handles those intents. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- "Open with" for .svga files. The format has no registered MIME
+                 type, so file managers and chat apps send it either as a
+                 generic binary or under a path ending in .svga; both are
+                 accepted and the app checks the content when it decodes. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:mimeType="application/octet-stream"/>
+                <data android:mimeType="application/svga"/>
+                <data android:mimeType="application/x-svga"/>
+            </intent-filter>
+            <!-- Path match, with any MIME type and with none. Android's legacy
+                 pathPattern stops at the first dot, hence one pattern per dot
+                 count; pathAdvancedPattern (Android 12+) is a real regex. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:host="*"/>
+                <data android:mimeType="*/*"/>
+                <data android:pathPattern=".*\\.svga"/>
+                <data android:pathPattern=".*\\..*\\.svga"/>
+                <data android:pathPattern=".*\\..*\\..*\\.svga"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.svga"/>
+                <data android:pathPattern=".*\\.SVGA"/>
+                <data android:pathAdvancedPattern=".*\\.[sS][vV][gG][aA]"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:host="*"/>
+                <data android:pathPattern=".*\\.svga"/>
+                <data android:pathPattern=".*\\..*\\.svga"/>
+                <data android:pathPattern=".*\\..*\\..*\\.svga"/>
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.svga"/>
+                <data android:pathPattern=".*\\.SVGA"/>
+                <data android:pathAdvancedPattern=".*\\.[sS][vV][gG][aA]"/>
+            </intent-filter>
+            <!-- Share sheet: chat apps often offer "Share" rather than
+                 "Open with" for a received file. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="application/octet-stream"/>
+                <data android:mimeType="application/svga"/>
+                <data android:mimeType="application/x-svga"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

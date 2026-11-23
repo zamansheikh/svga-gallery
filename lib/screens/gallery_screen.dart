@@ -7,6 +7,7 @@ import 'package:flutter_svga_easyplayer/flutter_svga_easyplayer.dart'
 
 import '../data/device_scanner.dart';
 import '../data/library_store.dart';
+import '../data/opened_files.dart';
 import '../models/svga_item.dart';
 import '../theme.dart';
 import '../widgets/about_sheet.dart';
@@ -50,6 +51,32 @@ class _GalleryScreenState extends State<GalleryScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _store.syncDevice();
+    OpenedFiles.listen(_openFiles);
+  }
+
+  /// Files handed over by the OS ("Open with", share): add them to the
+  /// gallery and play them straight away.
+  Future<void> _openFiles(List<String> paths) async {
+    final (items, result) = await _store.importOpened(paths);
+    if (!mounted) return;
+    if (items.isNotEmpty) {
+      Navigator.popUntil(context, (route) => route.isFirst);
+      _open(items, 0);
+    }
+    if (result.failed > 0) {
+      final count = result.failed;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              paths.length == 1
+                  ? 'Could not open this file: not a valid SVGA 2.x file'
+                  : '$count of ${paths.length} files could not be opened',
+            ),
+          ),
+        );
+    }
   }
 
   @override
