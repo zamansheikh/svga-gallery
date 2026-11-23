@@ -1,0 +1,195 @@
+name: Build
+
+# Builds the Windows installer, a portable Windows zip and the Android APK.
+#   - push to main, pull request: build, keep the files as workflow artifacts
+#   - push a v* tag: also publish them on the GitHub release for that tag
+#   - manual run: release_tag attaches the build to that (existing) release
+#
+# The APK's versionCode is the run number of this workflow, so renaming this
+# file (which restarts the count) would make new APKs unable to update old
+# ones.
+#
+# Android release signing uses these repository secrets; without them the
+# APK is signed with a throwaway debug key:
+#   ANDROID_KEYSTORE_BASE64   base64 of the .jks file
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore: ['**.md']
+  pull_request:
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing tag whose release should receive the build (optional)
+        required: false
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  FLUTTER_VERSION: 3.50.0
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - run: flutter pub get
+      # Infos are only the material.dart deprecation notices.
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+
+      - name: Version
+        id: version
+        shell: bash
+        env:
+          TAG: ${{ inputs.release_tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
+        run: |
+          if [ -n "$TAG" ]; then
+            version="${TAG#v}"
+          else
+            version="$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version $version, build ${{ github.run_number }}${TAG:+, release $TAG}" >> "$GITHUB_STEP_SUMMARY"
+
+  windows:
+    needs: check
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - run: flutter pub get
+
+      - run: flutter build windows --release --build-name=${{ env.VERSION }} --build-number=${{ github.run_number }}
+
+      # Flutter does not bundle the Visual C++ runtime; ship it next to the
+      # exe so the app starts on machines that do not have it installed.
+      - name: Bundle Visual C++ runtime
+        shell: pwsh
+        run: |
+          foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
+            Copy-Item "C:\Windows\System32\$dll" build/windows/x64/runner/Release/
+          }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ env.VERSION }}" windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package portable zip
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath build/installer/SVGA-Gallery-windows-x64-portable.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SVGA-Gallery-windows
+          path: build/installer/*
+          if-no-files-found: error
+
+  android:
+    needs: check
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Release signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning title=Unsigned APK::ANDROID_KEYSTORE_BASE64 is not set; the APK is signed with a throwaway debug key and cannot update other builds."
+            exit 0
+          fi
+          keystore="$RUNNER_TEMP/release.jks"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          {
+            echo "storeFile=$keystore"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
+
+      - run: flutter build apk --release --build-name=${{ env.VERSION }} --build-number=${{ github.run_number }}
+
+      - name: Name the APK
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/SVGA-Gallery-$VERSION.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SVGA-Gallery-android
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: [check, windows, android]
+    if: needs.check.outputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          ls -l dist
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "SVGA Gallery $TAG" --generate-notes --verify-tag
+          gh release upload "$TAG" dist/* --clobber

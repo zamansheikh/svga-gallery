@@ -8,6 +8,7 @@ A gallery app for browsing and previewing [SVGA](https://github.com/svga) animat
 
 ## Features
 
+- Opens `.svga` files from other apps: "Open with" and double-click on Windows and macOS, "Open with" and Share on Android
 - Grid of live, looping previews — only the tiles on screen are decoded and played, so large collections stay smooth
 - Android: scans the whole device for `.svga` files (Android 10 and newer)
 - Import from files, from a URL, or a built-in sample pack
@@ -17,14 +18,17 @@ A gallery app for browsing and previewing [SVGA](https://github.com/svga) animat
 
 ## Download
 
-Windows builds are attached to each [release](https://github.com/zamansheikh/svga-gallery/releases):
+Each [release](https://github.com/zamansheikh/svga-gallery/releases) has:
 
-- `SVGA-Gallery-Setup-<version>.exe` — installer (Start menu and optional desktop shortcut, uninstaller)
-- `SVGA-Gallery-windows-x64-portable.zip` — no install; unzip and run `svga_gallery.exe`
+- `SVGA-Gallery-Setup-<version>.exe` — Windows installer (Start menu and optional desktop shortcut, `.svga` file association, uninstaller)
+- `SVGA-Gallery-windows-x64-portable.zip` — Windows, no install; unzip and run `svga_gallery.exe`
+- `SVGA-Gallery-<version>.apk` — Android
+
+Every push to `main` builds the same files; they are on the workflow run's page under *Artifacts*. Pushing a `v*` tag publishes them to the release for that tag (see `.github/workflows/build.yml`).
 
 ## Build from source
 
-Requires Flutter 3.47 or newer.
+Requires Flutter 3.50 or newer.
 
 ```sh
 flutter pub get
